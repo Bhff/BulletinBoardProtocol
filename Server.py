@@ -15,7 +15,7 @@ class Group:
         self.creatorID = creatorID
         self.msgs = msgs
 
-    def addMsg(msg):
+    def addMsg(self, msg):
         self.msgs.append(msg)
 
 class BulletinBoard:

@@ -47,18 +47,18 @@ def verifySelection(min, max, menuText):
 
 class Client:
     # create_new_bbp_msg: formats data used bbp message into a string readable by the server 
-    def create_new_bbp_req(groupID, msgID, reqAct, reqObj, reqMod, subject, body):
-        reqList = ["u", self.userID, "g", groupID, "ms" msgID, "ra", reqAct, "ro", reqObj, "md", reqMod "s", subject, "b", body]
+    def create_new_bbp_req(self, groupID, msgID, reqAct, reqObj, reqMod, subject, body):
+        reqList = ["u", self.userID, "g", groupID, "ms", msgID, "ra", reqAct, "ro", reqObj, "md", reqMod, "s", subject, "b", body]
         delim = "\n"
         req = list_to_str(reqList, delim)
         return req
 
-    def __init__(self, connection, userID)
+    def __init__(self, connection, userID):
         self.connection = connection
         self.userID = userID
     
     # makeRequest: given a valid main menu selection, creates and sends appropriate request to server
-    def makeRequest(selection):
+    def makeRequest(self, selection):
 
         # Init request variables
         groupID = 0
@@ -140,7 +140,7 @@ class Client:
             print("Please enter the group ID for the messages you wish to view (leave blank or type 'public' for the public group):")
             groupID = input()
 
-        request = create_new_bbp_req(groupID, msgID, reqAct, reqObj, reqMod, subject, body)
+        request = self.create_new_bbp_req(groupID, msgID, reqAct, reqObj, reqMod, subject, body)
         self.connection.send(request)
 
 
@@ -157,7 +157,7 @@ def main():
     SERVER_NAME = "bbpserver"
     SERVER_PORT = 13037
     CLIENT_SOCKET = socket(AF_INET, SOCK_STREAM)
-    CLIENT_SOCKET.connect((serverName, serverPort))
+    CLIENT_SOCKET.connect((SERVER_NAME, SERVER_PORT))
 
     print("Welcome to the Bulletin Board!")
     print("Please enter your User ID:")
