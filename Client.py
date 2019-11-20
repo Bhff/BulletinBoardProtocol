@@ -48,7 +48,7 @@ def verifySelection(min, max, menuText):
 class Client:
     # create_new_bbp_msg: formats data used bbp message into a string readable by the server 
     def create_new_bbp_req(self, groupID, msgID, reqAct, reqObj, reqMod, subject, body):
-        reqList = ["u", self.userID, "g", groupID, "ms", msgID, "ra", reqAct, "ro", reqObj, "md", reqMod, "s", subject, "b", body]
+        reqList = ["u", self.userID, "g", groupID, "ms", msgID, "ra", reqAct, "ro", reqObj, "rm", reqMod, "s", subject, "b", body]
         delim = "\n"
         req = list_to_str(reqList, delim)
         return req
