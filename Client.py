@@ -48,7 +48,7 @@ def verifySelection(min, max, menuText):
 class Client:
     # create_new_bbp_msg: formats data used bbp message into a string readable by the server 
     def create_new_bbp_req(self, groupID, msgID, reqAct, reqObj, reqMod, subject, body):
-        reqList = ["u", self.userID, "g", groupID, "ms", msgID, "ra", reqAct, "ro", reqObj, "rm", reqMod, "s", subject, "b", body]
+        reqList = ["u," + self.userID, "g," + groupID, "ms," + msgID, "ra," + reqAct, "ro," + reqObj, "rm," + reqMod, "s," + subject, "b", body]
         delim = "\n"
         req = list_to_str(reqList, delim)
         return req
@@ -100,7 +100,7 @@ class Client:
             reqAct = "remove"
             reqObj = "msg"
 
-            print("Please enter the group ID of the message you want to remove:")
+            print("Please enter the group ID of the message you want to remove (leave blank or type 'public' for the public group):")
             groupID = input()
 
             print("Please enter the message ID to remove:")
@@ -149,10 +149,13 @@ def mainMenu(client):
     while (selection > 0):
         selection = verifySelection(0, 7, MAIN_MENU)
         client.makeRequest(selection)
+        response = client.connection.recv(1000000)
 
 
 
 def main():
+
+    print("uh")
 
     SERVER_NAME = "bbpserver"
     SERVER_PORT = 13037
@@ -171,3 +174,5 @@ def main():
     print("Thank you for using our Bulletin Board!")
 
     return
+
+main()
