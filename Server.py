@@ -2,6 +2,8 @@
 ### Author: Alex Donaldson ###
 
 from socket import *
+from threading import *
+
 
 RET_CODE_DICT = {
     #Success Codes#
@@ -150,29 +152,47 @@ class BulletinBoard:
         self.currReq = currReq
 
 
+# Threaded Server implementation found at:
+# https://stackoverflow.com/questions/23828264/how-to-make-a-simple-multithreaded-socket-server-in-python-that-remembers-client
 class Server:
-    def __init__(self, socket):
-        self.socket = socket
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        self.socket = socket(AF_INET,SOCK_STREAM)
+        self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self.board = BulletinBoard("messages.txt", Request("", "", "", "", "", "", "", ""))
 
+    def listen(self):
+        self.socket.listen(5)
+        while True:
+            client, address = self.socket.accept()
+            client.settimeout(60)
+            t = Thread(target = self.listenToClient,args = (client,address))
+            t.start()
+
+    def listenToClient(self, client, address):
+        size = 1024
+        while True:
+            try:
+                data = client.recv(size)
+                if data:
+                    # Set the response to echo back the recieved data
+                    self.board.read_bbp_req(data) 
+                    response = self.board.handle_current_request()
+                    client.send(response)
+                else:
+                    raise error('Disconnection Occurred!')
+            except:
+                client.close()
+                return False
 
 
 def main():
-    serverPort = 13037
-    serverSocket = socket(AF_INET,SOCK_STREAM)
-    serverSocket.bind(('',serverPort))
-    serverSocket.listen(128)
+    host = "bbpserver"
+    port = 13037
 
-    stayOpen = True
-
-    s = Server(serverSocket)
-    while stayOpen:
-        connectionSocket, addr = s.socket.accept()
-        bbpReq = connectionSocket.recv(1000000)
-        s.board.read_bbp_req(bbpReq)
-        response = s.board.handle_current_request()
-        connectionSocket.send(response)
-        connectionSocket.close() 
+    s = Server(host, port)
+    s.listen()
 
 
 '''
