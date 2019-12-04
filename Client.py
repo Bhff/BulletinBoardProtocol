@@ -48,7 +48,7 @@ def verifySelection(min, max, menuText):
 class Client:
     # create_new_bbp_msg: formats data used bbp message into a string readable by the server 
     def create_new_bbp_req(self, groupID, msgID, reqAct, reqObj, reqMod, subject, body):
-        reqList = ["u," + self.userID, "g," + groupID, "ms," + msgID, "ra," + reqAct, "ro," + reqObj, "rm," + reqMod, "s," + subject, "b", body]
+        reqList = [self.userID, groupID, msgID, reqAct, reqObj, reqMod, subject, body]
         delim = "\n"
         req = list_to_str(reqList, delim)
         return req
@@ -61,8 +61,8 @@ class Client:
     def makeRequest(self, selection):
 
         # Init request variables
-        groupID = 0
-        msgID = 0
+        groupID = ""
+        msgID = ""
         reqAct = ""
         reqObj = ""
         reqMod = ""
@@ -74,12 +74,9 @@ class Client:
             
             reqAct = "create"
             reqObj = "msg"
-
-            print("Please enter the group ID for the messages you wish to view (leave blank or type 'public' for the public group):")
-            groupID = input()
-            
-            print("Please enter the subject for the message:")
-            subject = input()
+            groupID = input("Please enter the group ID for the messages you wish to view (leave blank or type 'public' for the public group):\n")
+            msgID = input("Please give your message an ID:\n")
+            subject = input("Please enter the subject for the message:\n")
 
             print("Please enter your message body (type 'END' to finish the message):")
             bodyLine = ""
@@ -91,57 +88,57 @@ class Client:
         elif (selection == 2):
             reqAct = "create"
             reqObj = "group"
-
-            print("Please enter the group ID you want to create:")
-            groupID = input()
+            groupID = input("Please enter the group ID you want to create:\n")
 
         # Remove message
         elif (selection == 3):
             reqAct = "remove"
             reqObj = "msg"
-
-            print("Please enter the group ID of the message you want to remove (leave blank or type 'public' for the public group):")
-            groupID = input()
-
-            print("Please enter the message ID to remove:")
-            msgID = input()
+            groupID = input("Please enter the group ID of the message you want to remove (leave blank or type 'public' for the public group):\n")
+            msgID = input("Please enter the message ID to remove:\n")
 
         # Remove group
         elif (selection == 4):
             reqAct = "remove"
             reqObj = "group"
-
-            print("Please enter the group ID you want to remove:")
-            groupID = input()
+            groupID = input("Please enter the group ID you want to remove:\n")
 
         # View messages
         elif (selection == 5):
             reqAct = "view"
             reqObj = "msg"
-
-            print("Please enter the group ID for the messages you wish to view (leave blank or type 'public' for the public group):")
-            groupID = input()
+            groupID = input("Please enter the group ID for the messages you wish to view (leave blank or type 'public' for the public group):\n")
 
         # View new messages
         elif (selection == 6):
             reqAct = "view"
             reqObj = "msg"
             reqMod = "new"
-
-            print("Please enter the group ID for the messages you wish to view (leave blank or type 'public' for the public group):")
-            groupID = input()
+            groupID = input("Please enter the group ID for the messages you wish to view (leave blank or type 'public' for the public group):\n")
 
         # View total messages
         elif (selection == 7):
             reqAct = "view"
             reqObj = "msg"
             reqMod = "total"
-
-            print("Please enter the group ID for the messages you wish to view (leave blank or type 'public' for the public group):")
-            groupID = input()
+            groupID = input("Please enter the group ID for the messages you wish to view (leave blank or type 'public' for the public group):\n")
 
         request = self.create_new_bbp_req(groupID, msgID, reqAct, reqObj, reqMod, subject, body)
+        request = bytes(request, 'utf-8')
         self.connection.send(request)
+
+    def handle_response(self, resp):
+
+        print(resp)
+        '''
+        strResp = str(resp)
+        try:
+            code = int(strResp[0:2])
+        except TypeError:
+            print("Invalid response code")
+        else:
+            print(strResp)
+        '''
 
 
 def mainMenu(client):
@@ -150,21 +147,19 @@ def mainMenu(client):
         selection = verifySelection(0, 7, MAIN_MENU)
         client.makeRequest(selection)
         response = client.connection.recv(1000000)
+        client.handle_response(response)
 
 
 
 def main():
 
-    print("uh")
-
-    SERVER_NAME = "bbpserver"
+    SERVER_NAME = '127.0.0.1'
     SERVER_PORT = 13037
     CLIENT_SOCKET = socket(AF_INET, SOCK_STREAM)
     CLIENT_SOCKET.connect((SERVER_NAME, SERVER_PORT))
 
     print("Welcome to the Bulletin Board!")
-    print("Please enter your User ID:")
-    userID = input()
+    userID = input("Please enter your User ID:\n")
     c = Client(CLIENT_SOCKET, userID)
 
     mainMenu(c)
@@ -173,6 +168,13 @@ def main():
 
     print("Thank you for using our Bulletin Board!")
 
-    return
+    '''CLIENT_SOCKET.connect((SERVER_NAME,SERVER_PORT))
+    sentence = input('Input lowercase sentence:')
+    sentence = bytes(sentence, 'utf-8')
+    CLIENT_SOCKET.send(sentence)
+    modifiedSentence = CLIENT_SOCKET.recv(1024)
+    print ('From Server:', modifiedSentence)
+    CLIENT_SOCKET.close()'''
+
 
 main()

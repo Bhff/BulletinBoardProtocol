@@ -3,7 +3,7 @@
 
 from socket import *
 from threading import *
-
+from time import *
 
 RET_CODE_DICT = {
     #Success Codes#
@@ -16,6 +16,7 @@ RET_CODE_DICT = {
     17: "Messages Totaled",
 
     #Error Codes#
+    21: "Message ID Already Exists",
     22: "Group Already Exists",
     23: "Message Does Not Exist",
     24: "Group Does Not Exist",
@@ -40,10 +41,10 @@ class Group:
     def __init__(self, id, creatorID):
         self.id = id
         self.creatorID = creatorID
-        #self.msgs = msgs
+        self.msgs = {}
 
-    #def addMsg(self, msg):
-     #   self.msgs.append(msg)
+    def addMsg(self, msg):
+        self.msgs[msg.id] = msg if (msg.id not in self.msgs.keys()) else print("Message already exists")
 
 class Request:
     def __init__(self, userID, groupID, msgID, act, obj, mod, subject, body):
@@ -63,18 +64,16 @@ class PostDictionary:
     def __init__(self, grpDict, msgs):
         self.grpDict = grpDict
         for m in msgs:
-            self.grpDict[m.groupID][m.id] = m
+            self.grpDict[m.groupID].addMsg(m)
 
     def addMsg(self, msg):
-        self.grpDict[msg.groupID][msg.id] = msg
+        self.grpDict[msg.groupID].addMsg(msg)
         
-
 
 
 class BulletinBoard:
     def load_groups(self, fileName):
         file = open(fileName, "r")
-        #postDict = PostDictionary
         for line in file:
             line = line.strip()
             print(line)
@@ -83,7 +82,12 @@ class BulletinBoard:
 
     def read_bbp_req(self, bbpReq):
 
-        request = bbpReq.split("\n")
+        strReq = str(bbpReq)
+        strReq = strReq.decode('utf-8')
+
+        print("strReq:\n", strReq)
+
+        request = strReq.split("\n")
 
         userID = request[0]
         groupID = request[1]
@@ -92,45 +96,90 @@ class BulletinBoard:
         reqObj = request[4]
         reqMod = request[5]
         subject = request[6]
-        body = ""        
+        body = ""
 
         for idx in range(7, len(request)):
             body += request[idx]
 
         self.currReq = Request(userID, groupID, msgID, reqAct, reqObj, reqMod, subject, body)
-
+        print("Current Request:\n", self.currReq)
 
 
     def handle_current_request(self):
 
-        retCode = 0
+        req = self.currReq
+        retCode = 99
+        respBody = ""
 
-        if (self.currReq.act == "create"):
+        # exists = tuple(bool for groupId's existence, bool for msgId's existence)
+        exists = self.group_msg_status(req.groupID, req.msgID)
 
-            if (self.currReq.obj == "msg"):
-                pass
-            elif (self.currReq.obj == "group"):
-                pass
+        if (req.act == "create"):
 
-        elif (self.currReq.act == "remove"):
-            
-            if (self.currReq.obj == "msg"):
-                pass
-            elif (self.currReq.obj == "group"):
-                pass
-
-        elif (self.currReq.act == "view"):
-            
-            if (self.currReq.obj == "msg"):
-
-                if (self.currReq.mod == "new"):
-                    pass
-                if (self.currReq.mod == "total"):
-                    pass
+            if (req.obj == "msg"):
+                if (not exists[0]):
+                    retCode = 24
+                elif (exists[1]):
+                    retCode = 21
                 else:
-                    pass
+                    retCode = 11
+                    msg = Message(req.msgID, req.groupID, req.userID, req.subj, req.body, time())
+                    self.posts.addMsg(msg)
 
-        response = ''
+            elif (req.obj == "group"):
+                if (exists[0]):
+                    retCode = 22
+                else:
+                    retCode = 12
+                    grp = Group(req.groupID, req.userID)
+                    self.posts.grpDict[req.groupID] = grp
+
+        elif (req.act == "remove"):
+            
+            if (req.obj == "msg"):
+                if (not exists[0]):
+                    retCode = 24
+                elif (not exists[1]):
+                    retCode = 23
+                elif (self.posts.grpDict[req.groupID].msgs[req.msgID].creatorID != req.userID):
+                    retCode = 31
+                else:
+                    retCode = 13
+                    self.posts.grpDict[req.groupID].msgs.pop(req.msgID)
+                    
+
+            elif (req.obj == "group"):
+                if (not exists[0]):
+                    retCode = 24
+                elif (self.posts.grpDict[req.groupID].creatorID != req.userID):
+                    retCode = 32
+                else:
+                    retCode = 14
+                    self.posts.grpDict.pop(req.groupID)
+
+        elif (req.act == "view"):
+
+            if (not exists[0]):
+                retCode = 24
+            else:
+                if (req.obj == "msg"):
+
+                    for mKey in self.posts.grpDict[req.groupID].msgs.keys():
+                        respBody += "\n" + mKey
+                        respBody += "\n" + self.posts.grpDict[req.groupID].msgs[mKey].subject
+                        respBody += "\n" + self.posts.grpDict[req.groupID].msgs[mKey].body
+                        respBody += "\n\nEND\n"
+
+                elif (req.mod == "new"):
+                    retCode = 16
+
+                elif (req.mod == "total"):
+                    retCode = 17
+                    respBody = str(len(self.posts.grpDict[req.groupID].msgs))
+
+
+        response = str(retCode) + RET_CODE_DICT[retCode] + "\n" + respBody
+        print("Response:\n", response)
         return response
 
     
@@ -161,14 +210,17 @@ class Server:
         self.socket = socket(AF_INET,SOCK_STREAM)
         self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self.board = BulletinBoard("messages.txt", Request("", "", "", "", "", "", "", ""))
+        self.socket.bind((self.host, self.port))
 
     def listen(self):
         self.socket.listen(5)
         while True:
+            print("listening...")
             client, address = self.socket.accept()
             client.settimeout(60)
-            t = Thread(target = self.listenToClient,args = (client,address))
-            t.start()
+            self.listenToClient(client, address)
+            #Thread(target = self.listenToClient, args = (client, address)).start()
+            #t.run()
 
     def listenToClient(self, client, address):
         size = 1024
@@ -176,10 +228,13 @@ class Server:
             try:
                 data = client.recv(size)
                 if data:
-                    # Set the response to echo back the recieved data
+                    print("data received:", data)
                     self.board.read_bbp_req(data) 
+                    print("data read")
                     response = self.board.handle_current_request()
+                    response = bytes(response)
                     client.send(response)
+                    print("response sent")
                 else:
                     raise error('Disconnection Occurred!')
             except:
@@ -188,25 +243,27 @@ class Server:
 
 
 def main():
-    host = "bbpserver"
+    host = ''
     port = 13037
 
+    #print("host ==", host)
+
+    Server(host, port).listen()
     s = Server(host, port)
     s.listen()
 
-
 '''
-def testLoop():
-    test = "Sometimes\n I wish\n testing was easier\n than this bullshit\n uh \n \n fuck"
-    testList = test.split("\n")
+    serverSocket = socket(AF_INET,SOCK_STREAM)
+    serverSocket.bind(('', port))
+    serverSocket.listen(1)
+    print('The server is ready to receive')
+    while 1:
+        connectionSocket, addr = serverSocket.accept()
+        sentence = connectionSocket.recv(1024)
+        capitalizedSentence = sentence.upper()
+        connectionSocket.send(capitalizedSentence)
+        connectionSocket.close()
+'''
 
-    print("testList ==", testList)
 
-    for idx in range(len(testList)):
-        print("idx ==", idx)
-        print("item @ idx ==", testList[idx])
-        idx += 1
-        print("item @ new idx ==", testList[idx])
-
-
-testLoop()'''
+main()
