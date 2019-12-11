@@ -21,6 +21,9 @@ PUBLIC_PRIVATE_MENU = """
 2. Private
 """
 
+SERVER_NAME = '127.0.0.1'
+SERVER_PORT = 13037
+
 #list_to_str: more legible way to convert a list to a string than "string-delimiter.join(list)"
 def list_to_str(inList, delim):
     outStr = delim.join(inList)
@@ -59,11 +62,11 @@ class Client:
     
     # makeRequest: given a valid main menu selection, creates and sends appropriate request to server
     def makeRequest(self, selection):
-
+ 
         # Init request variables
         groupID = ""
         msgID = ""
-        reqAct = ""
+        reqAct = "close"
         reqObj = ""
         reqMod = ""
         subject = ""
@@ -81,7 +84,7 @@ class Client:
             print("Please enter your message body (type 'END' to finish the message):")
             bodyLine = ""
             while (bodyLine != "END"):
-                body += bodyLine
+                body += (bodyLine + "\n")
                 bodyLine = input()
 
         # Create new group
@@ -129,7 +132,8 @@ class Client:
 
     def handle_response(self, resp):
 
-        print(resp)
+        respStr = resp.decode()
+        print(respStr)
         '''
         strResp = str(resp)
         try:
@@ -144,27 +148,28 @@ class Client:
 def mainMenu(client):
     selection = 999
     while (selection > 0):
+        #client.connection.connect((SERVER_NAME, SERVER_PORT))
         selection = verifySelection(0, 7, MAIN_MENU)
         client.makeRequest(selection)
-        response = client.connection.recv(1000000)
+        response = client.connection.recv(4096)
         client.handle_response(response)
+        #client.connection.close()
 
 
 
 def main():
 
-    SERVER_NAME = '127.0.0.1'
-    SERVER_PORT = 13037
     CLIENT_SOCKET = socket(AF_INET, SOCK_STREAM)
-    CLIENT_SOCKET.connect((SERVER_NAME, SERVER_PORT))
 
     print("Welcome to the Bulletin Board!")
     userID = input("Please enter your User ID:\n")
+
+    CLIENT_SOCKET.connect((SERVER_NAME, SERVER_PORT))
     c = Client(CLIENT_SOCKET, userID)
 
     mainMenu(c)
 
-    CLIENT_SOCKET.close()
+
 
     print("Thank you for using our Bulletin Board!")
 
