@@ -7,6 +7,7 @@ from time import *
 
 RET_CODE_DICT = {
     #Success Codes#
+    10: "Closed Connection",
     11: "Message Created",
     12: "Group Created",
     13: "Message Removed",
@@ -14,7 +15,6 @@ RET_CODE_DICT = {
     15: "All Messages Found",
     16: "New Messages Found",
     17: "Messages Totaled",
-    18: "Closed Connection",
 
     #Error Codes#
     21: "Message ID Already Exists",
@@ -33,17 +33,12 @@ class Message:
     def __init__(self, req):
         print("init-ing message")
         self.id = req.msgID
-        #input("m_id")
         self.groupID = req.groupID
-        #input("groupID")
         self.creatorID = req.userID
-        #input("Creator_id")
         self.subj = req.subject
-        #input("subj")
         self.body = req.body
-        #input("body")
-        self.timestamp = req.timestamp
-        #print("timestamp, message init-ed")
+        self.timestamp = float(req.timestamp)
+        print("msg timestamp:", self.timestamp)
 
 class Group:
     def __init__(self, id, creatorID):
@@ -58,6 +53,9 @@ class Group:
             self.msgs[msg.id] = msg 
         else:
             print("Message already exists")
+
+    def getMsg(self, mID):
+        return self.msgs[mID]
 
 class Request:
     def __init__(self, userID, groupID, msgID, act, obj, mod, subject, body, timestamp):
@@ -83,6 +81,12 @@ class PostDictionary:
     def addMsg(self, msg):
         print("adding msg to PostDict")
         self.grpDict[msg.groupID].addMsg(msg)
+
+    def getGrp(self, gID):
+        return self.grpDict[gID]
+
+    def getMsg(self, gID, mID):
+        return self.grpDict[gID].getMsg(mID)
         
 
 
@@ -109,7 +113,9 @@ class BulletinBoard:
         reqMod = request[5]
         subject = request[6]
         body = ""
-        timestamp = ""
+        timestamp = str(time())
+
+        print("req.timestamp:", timestamp)
 
         for idx in range(7, len(request)):
             body += request[idx] + '\n'
@@ -126,6 +132,8 @@ class BulletinBoard:
         req = self.currReq
         retCode = 99
         respBody = ""
+
+
 
         # exists = tuple(bool for groupId's existence, bool for msgId's existence)
         exists = self.group_msg_status(req.groupID, req.msgID)
@@ -202,31 +210,51 @@ class BulletinBoard:
                 if (req.obj == "msg"):
 
                     retCode = 15
-                    isNew = False
 
-                    if (req.mod == "new"):
-                        print("....NEW....")
-                        retCode = 16
-                        isNew = True
-
-
-                    elif (req.mod == "total"):
+                    if (req.mod == "total"):
                         print("....TOTAL....")
                         retCode = 17
                         respBody = str(len(self.posts.grpDict[req.groupID].msgs))
 
-                    print("....MESSAGES")
+                    else:
 
-                    for mKey in self.posts.grpDict[req.groupID].msgs.keys():
-                        respBody += "\n" + str(mKey)
-                        respBody += "\n" + self.posts.grpDict[req.groupID].msgs[mKey].subj
-                        respBody += "\n" + self.posts.grpDict[req.groupID].msgs[mKey].body
-                        respBody += "\nEND\n"
+                        if (req.userID not in self.userViewTimes.keys()):
+                            self.userViewTimes[req.userID] = 0.0
+
+                        if (req.mod == "new"):
+                            print("....NEW MESSAGES")
+                            retCode = 16
+                            for mKey in self.posts.grpDict[req.groupID].msgs.keys():
+                                print("checking mKey...")
+                                print("self.userViewTimes[req.userID]:", self.userViewTimes[req.userID])
+                                print(self.posts.getMsg(req.groupID, mKey).timestamp)
+                                if (self.userViewTimes[req.userID] < self.posts.getMsg(req.groupID, mKey).timestamp):
+                                    respBody += "\n" + str(mKey)
+                                    respBody += "\n" + self.posts.grpDict[req.groupID].msgs[mKey].subj
+                                    respBody += "\n" + self.posts.grpDict[req.groupID].msgs[mKey].body
+                                    respBody += "END\n"
+                                    print("new msg added to response")
+                        else:
+                            print("....MESSAGES")
+                            for mKey in self.posts.grpDict[req.groupID].msgs.keys():
+                                print("checking mKey...")
+                                respBody += "\n" + str(mKey)
+                                respBody += "\n" + self.posts.grpDict[req.groupID].msgs[mKey].subj
+                                respBody += "\n" + self.posts.grpDict[req.groupID].msgs[mKey].body
+                                respBody += "END\n"
+                                print("msg added to response")
+
+                        print("updating userViewTimes...")
+                        self.userViewTimes[req.userID] = float(req.timestamp)                        
+                        print("updated!")
+
+                        if (respBody == ""):
+                            respBody = "No messages found!"
+
 
         elif (req.act == 'close'):
-            retCode = 18
+            retCode = 10
             print("CLOSE!")
-            
 
         print("request handled")
 
@@ -241,7 +269,7 @@ class BulletinBoard:
 
         isGroup = False
         isMsg = False
-        
+
         isGroup = groupID in self.posts.grpDict.keys()
         if (isGroup):
             isMsg = msgID in self.posts.grpDict[groupID].msgs.keys()
@@ -254,6 +282,7 @@ class BulletinBoard:
     def __init__(self):
         self.posts = PostDictionary({'public': Group('public', '')}, [])
         self.currReq = Request("", "", "", "", "", "", "", "", "")
+        self.userViewTimes = {}
 
 
 
@@ -299,7 +328,6 @@ class Server:
         self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self.board = BulletinBoard()
         self.socket.bind((self.host, self.port))
-        self.userViewTimes = {}
 
     def listen(self):
         self.socket.listen(5)
